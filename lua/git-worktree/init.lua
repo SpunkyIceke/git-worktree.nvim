@@ -242,12 +242,8 @@ local function has_worktree(path, cb)
             end
 
             -- TODO: This is clearly a hack (do not think we need this anymore?)
-            local start_with_head = string.find(
-                data,
-                string.format("[heads/%s]", path),
-                1,
-                true
-            )
+            local start_with_head =
+                string.find(data, string.format("[heads/%s]", path), 1, true)
             found = found or start or start_with_head
         end,
         cwd = git_worktree_root,
@@ -295,11 +291,9 @@ local function has_origin()
     })
 
     -- TODO: I really don't want status's spread everywhere... seems bad
-    job
-        :after(function()
-            status:status("found origin: " .. tostring(found))
-        end)
-        :sync()
+    job:after(function()
+        status:status("found origin: " .. tostring(found))
+    end):sync()
 
     return found
 end
@@ -320,31 +314,27 @@ local function has_branch(branch, cb)
 
     -- TODO: I really don't want status's spread everywhere... seems bad
     status:next_status(string.format("Checking for branch %s", branch))
-    job
-        :after(function()
-            status:status("found branch: " .. tostring(found))
-            cb(found)
-        end)
-        :start()
+    job:after(function()
+        status:status("found branch: " .. tostring(found))
+        cb(found)
+    end):start()
 end
 
 -- Has branch function to use outside of this file
 -- Using the existing one did not work for some reason, got weird erros :)
 M.has_branch = function(branch)
     local found = false
-    Job
-        :new({
-            "git",
-            "branch",
-            on_stdout = function(_, data)
-                -- remove marker on current branch
-                data = data:gsub("*", "")
-                data = vim.trim(data)
-                found = found or data == branch
-            end,
-            cwd = git_worktree_root,
-        })
-        :sync()
+    Job:new({
+        "git",
+        "branch",
+        on_stdout = function(_, data)
+            -- remove marker on current branch
+            data = data:gsub("*", "")
+            data = vim.trim(data)
+            found = found or data == branch
+        end,
+        cwd = git_worktree_root,
+    }):sync()
 
     return found
 end
@@ -391,6 +381,16 @@ local function create_worktree(
             status:next_status("git fetch --all (This may take a moment)")
         end,
     })
+    local gitconfig = Job:new({
+        "git",
+        "config",
+        "remote.origin.fetch",
+        "+refs/heads/*:refs/remotes/origin/*",
+        cwd = worktree_path,
+        on_start = function()
+            status:next_status("configuring refs")
+        end,
+    })
 
     local set_branch_cmd = "git"
     local set_branch_args = {
@@ -433,15 +433,12 @@ local function create_worktree(
     })
 
     current_branch_job:add_on_exit_callback(function()
-        local create = create_worktree_job(
-            path,
-            branch,
-            found_branch,
-            base_branch
-        )
+        local create =
+            create_worktree_job(path, branch, found_branch, base_branch)
 
         if upstream ~= nil then
-            create:and_then_on_success(fetch)
+            create:and_then_on_success(gitconfig)
+            gitconfig:and_then_on_success(fetch)
             fetch:and_then_on_success(set_branch)
 
             if M._config.autopush then

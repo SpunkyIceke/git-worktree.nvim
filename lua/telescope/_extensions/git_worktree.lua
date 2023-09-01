@@ -28,11 +28,11 @@ end
 local toggle_forced_deletion = function()
     -- redraw otherwise the message is not displayed when in insert mode
     if force_next_deletion then
-        print('The next deletion will not be forced')
-        vim.fn.execute('redraw')
+        print("The next deletion will not be forced")
+        vim.fn.execute("redraw")
     else
-        print('The next deletion will be forced')
-        vim.fn.execute('redraw')
+        print("The next deletion will be forced")
+        vim.fn.execute("redraw")
         force_next_deletion = true
     end
 end
@@ -76,10 +76,10 @@ local delete_worktree = function(prompt_bufnr)
     local worktree_path = get_worktree_path(prompt_bufnr)
     actions.close(prompt_bufnr)
     if worktree_path ~= nil then
-       git_worktree.delete_worktree(worktree_path, force_next_deletion, {
-           on_failure = delete_failure_handler,
-           on_success = delete_success_handler
-       })
+        git_worktree.delete_worktree(worktree_path, force_next_deletion, {
+            on_failure = delete_failure_handler,
+            on_success = delete_success_handler,
+        })
     end
 end
 
@@ -175,15 +175,13 @@ local telescope_git_worktree = function(opts)
         if entry.sha ~= "(bare)" then
             local index = #results + 1
             for key, val in pairs(widths) do
-                if key == 'path' then
+                if key == "path" then
                     local new_path = utils.transform_path(opts, entry[key])
                     local path_len = strings.strdisplaywidth(new_path or "")
                     widths[key] = math.max(val, path_len)
                 else
-                    widths[key] = math.max(
-                        val,
-                        strings.strdisplaywidth(entry[key] or "")
-                    )
+                    widths[key] =
+                        math.max(val, strings.strdisplaywidth(entry[key] or ""))
                 end
             end
 
@@ -216,29 +214,31 @@ local telescope_git_worktree = function(opts)
         })
     end
 
-    pickers.new(opts or {}, {
-        prompt_title = "Git Worktrees",
-        finder = finders.new_table({
-            results = results,
-            entry_maker = function(entry)
-                entry.value = entry.branch
-                entry.ordinal = entry.branch
-                entry.display = make_display
-                return entry
+    pickers
+        .new(opts or {}, {
+            prompt_title = "Git Worktrees",
+            finder = finders.new_table({
+                results = results,
+                entry_maker = function(entry)
+                    entry.value = entry.branch
+                    entry.ordinal = entry.branch
+                    entry.display = make_display
+                    return entry
+                end,
+            }),
+            sorter = conf.generic_sorter(opts),
+            attach_mappings = function(_, map)
+                action_set.select:replace(switch_worktree)
+
+                map("i", "<c-d>", delete_worktree)
+                map("n", "<c-d>", delete_worktree)
+                map("i", "<c-f>", toggle_forced_deletion)
+                map("n", "<c-f>", toggle_forced_deletion)
+
+                return true
             end,
-        }),
-        sorter = conf.generic_sorter(opts),
-        attach_mappings = function(_, map)
-            action_set.select:replace(switch_worktree)
-
-            map("i", "<c-d>", delete_worktree)
-            map("n", "<c-d>", delete_worktree)
-            map("i", "<c-f>", toggle_forced_deletion)
-            map("n", "<c-f>", toggle_forced_deletion)
-
-            return true
-        end,
-    }):find()
+        })
+        :find()
 end
 
 return require("telescope").register_extension({
