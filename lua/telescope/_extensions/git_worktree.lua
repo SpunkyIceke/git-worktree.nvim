@@ -131,7 +131,7 @@ local create_worktree = function(opts)
 
             local name = create_input_prompt()
             if name == "" then
-                name = branch
+                name = "../" .. branch
             end
 
             local has_branch = git_worktree.has_branch(branch)
